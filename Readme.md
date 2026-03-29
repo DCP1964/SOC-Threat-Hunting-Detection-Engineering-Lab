@@ -200,11 +200,10 @@ The project repository is organized to clearly separate architecture, detections
 - architecture
 - detections
 - sigma-rules
-- threat-hunting
-- dashboards
 - screenshots
-- reports
+- queries (Splunk detection & hunting queries)
 - README.md
+
 
 ------------------------------------------------------------------------
 
@@ -425,6 +424,23 @@ Detection queries for this activity are included in the Threat Hunting Queries s
 - PowerShell Execution → T1059.001  
 - Obfuscated Commands → T1027  
 - Process Injection / Credential Access → T1003  
+
+## Attack Scenario Summary
+
+During the lab, multiple attack simulations were executed:
+
+1. PowerShell encoded command execution
+2. Suspicious process spawning (calc.exe via PowerShell)
+3. SSH brute force attempts from attacker system
+
+### Detection Flow
+
+- Sysmon captured process execution
+- Splunk queries identified suspicious command-line patterns
+- Investigation workflow validated activity
+- Fail2Ban automatically blocked attacking IP
+
+This demonstrates a complete SOC workflow from detection to automated response.
 
 ------------------------------------------------------------------------
 
@@ -1306,7 +1322,6 @@ Fail2Ban did not trigger bans.
 ip a
 ```
 
-
 - Verified connectivity
 - Generated multiple failed SSH login attempts
 
@@ -1448,7 +1463,7 @@ Measures the volume of detection events over time.
 **Splunk Query:**
 ```
 index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
-| timechart span=1h count
+| timechart span=1h count by host
 ```
 
 
@@ -1565,7 +1580,7 @@ index=* "Failed password"
 
 **Screenshot**
 
-![SSH Failures vissualization](screenshots/ssh_failures02.png)
+![SSH Failures visualization](screenshots/ssh_failures02.png)
 
 **Figure: Failed SSH login attempts grouped by source IP**
 
@@ -1876,11 +1891,14 @@ This project demonstrates a wide range of practical cybersecurity and SOC-relate
 This project demonstrates end-to-end SOC capabilities, combining technical skills, analytical thinking, and real-world problem-solving required for cybersecurity analyst and detection engineering roles.
 
 ------------------------------------------------------------------------
+## My Role
 
-
-------------------------------------------------------------------------
-
-
+- Designed and built the entire lab environment
+- Configured Sysmon and Splunk ingestion pipeline
+- Developed detection queries using SPL
+- Conducted threat hunting and investigations
+- Implemented automated response using Fail2Ban
+- Created dashboards and SOC metrics
 
 ------------------------------------------------------------------------
 

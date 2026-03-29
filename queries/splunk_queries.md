@@ -1,42 +1,87 @@
-# Detection Queries
+# Splunk Threat Hunting & Detection Queries
 
-## PowerShell Encoded Command
+This document contains all Splunk SPL queries developed during the SOC Threat Hunting Lab.
+
+These queries are designed for detection engineering, threat hunting, and investigation workflows.
+
+---
+
+## 1. PowerShell Execution Detection
+
+**Objective:** Identify PowerShell usage across the environment
+
 ```
 index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
-| search CommandLine="*EncodedCommand*"
+| rex field=_raw "<Data Name='Image'>(?<Image>[^<]+)</Data>"
+| search Image="*powershell.exe"
+| stats count by host Image
+```
+
+## 2. Encoded PowerShell Command Detection
+
+Objective: Detect obfuscated PowerShell commands
+
+```
+index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
+| rex field=_raw "<Data Name='CommandLine'>(?<CommandLine>[^<]+)</Data>"
+| search CommandLine="EncodedCommand"
+| stats count by host CommandLine
 ```
 
 ---
 
-## Execution Policy Bypass
+## 3. Parent-Child Process Analysis
+
+Objective: Identify suspicious process relationships
 ```
 index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
-| search CommandLine="*ExecutionPolicy Bypass*"
+| rex field=_raw "<Data Name='Image'>(?<Image>[^<]+)</Data>"
+| rex field=_raw "<Data Name='ParentImage'>(?<ParentImage>[^<]+)</Data>"
+| stats count by ParentImage Image
+| sort -count
 ```
 
 ---
 
-## LSASS Process Access
+## 4. LSASS Access Detection
+
+Objective: Detect credential dumping attempts
+
+```
+index=* EventCode=10
+| rex field=_raw "<Data Name='TargetImage'>(?<TargetImage>[^<]+)</Data>"
+| rex field=_raw "<Data Name='SourceImage'>(?<SourceImage>[^<]+)</Data>"
+| search TargetImage="*lsass.exe"
+| stats count by SourceImage TargetImage
+```
+
+## 5. SSH Brute Force Detection
+
+Objective: Identify failed SSH login attempts
+
+```
+index=* "Failed password"
+| rex field=_raw "from\s(?<src_ip>\d{1,3}(\.\d{1,3}){3})"
+| where src_ip!="127.0.0.1"
+| stats count by src_ip
+| sort -count
+```
+
+## 6. Detection Volume (Time-Based)
+
 ```
 index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
-| search CommandLine="*lsass*"
+| timechart span=1h count
 ```
 
-### Simulation 1 — PowerShell Execution
-
-**Command**
-```
-powershell Get-Process
-```
-
-### Simulation 2 — Encoded PowerShell Command
+## 7. Simulation 2 — Encoded PowerShell Command
 
 **Command**
 ```
 powershell -EncodedCommand UwB0AGEAcgB0AC0AUAByAG8AYwBlAHMAcwAgAGMAYQBsAGMALgBlAHgAZQA=
 ```
 
-### Simulation 3 — Suspicious Process Execution
+## 8. Simulation 3 — Suspicious Process Execution
 
 **Command**
 ```
@@ -44,7 +89,7 @@ powershell Start-Process calc.exe
 ```
 
 
-### Field Extraction Query
+## 9. Field Extraction Query
 ```
 index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
 | rex field=_raw "<Data Name='Image'>(?<Image>[^<]+)</Data>"
@@ -53,7 +98,7 @@ index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
 | head 20
 ```
 
-### Example Sigma Rule
+## 10. Example Sigma Rule
 
 ```yaml
 title: Suspicious PowerShell Encoded Command
@@ -72,7 +117,7 @@ detection:
 condition: selection
 level: high
 ```
-**Detection Query**
+## 11. Detection Query
 ```
 index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
 | rex field=_raw "<Data Name='Image'>(?<Image>[^<]+)</Data>"
@@ -81,7 +126,7 @@ index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
 | stats count by host CommandLine
 ```
 
-## 15.1 Suspicious PowerShell Execution
+## 12.1. Suspicious PowerShell Execution
 
 **Objective**
 
@@ -97,7 +142,7 @@ index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
 
 ```
 
-## 15.2 Encoded PowerShell Command Detection
+## 12.2 Encoded PowerShell Command Detection
 
 **Objective**
 
@@ -113,7 +158,7 @@ index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
 
 ```
 
-## 15.3 Suspicious Parent-Child Process Relationship
+## 12.3 Suspicious Parent-Child Process Relationship
 
 **Objective**
 
@@ -130,7 +175,7 @@ index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
 
 ```
 
-## 15.4 LSASS Access Detection (Credential Dumping)
+## 12.4 LSASS Access Detection (Credential Dumping)
 
 **Objective**
 
@@ -146,7 +191,7 @@ index=* EventCode=10
 | stats count by SourceImage TargetImage
 ```
 
-## 15.5 Process Enumeration Activity
+## 12.5 Process Enumeration Activity
 
 **Objective**
 
@@ -160,7 +205,7 @@ index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
 | stats count by CommandLine
 ```
 
-## Step 2 — Initial Triage
+## 13.1 Step 2 — Initial Triage
 
 Validate whether the alert is a false positive or requires investigation.
 
@@ -184,7 +229,7 @@ index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
 
 ```
 
-## Step 3 — Process Analysis
+## 13.2 Step 3 — Process Analysis
 
 Understand process behavior and relationships.
 
@@ -204,7 +249,7 @@ index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
 | sort -_time
 ```
 
-## Step 4 — Parent-Child Relationship Analysis
+## 13.3 Step 4 — Parent-Child Relationship Analysis
 
 Identify suspicious process chains.
 
@@ -223,7 +268,7 @@ index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
 | stats count by ParentImage Image
 | sort -count
 ```
-## Step 5 — Command Line Inspection
+## 13.4 Step 5 — Command Line Inspection
 
 Analyze command-line arguments for:
 
@@ -241,7 +286,7 @@ index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
 | sort -_time
 ```
 
-## Step 6 — Timeline Analysis
+## 13.5 Step 6 — Timeline Analysis
 
 Reconstruct attacker activity timeline.
 
@@ -263,7 +308,7 @@ index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
 | timechart span=1h count
 ```
 
-## Use Case — SSH Brute Force Detection
+## 14 Use Case — SSH Brute Force Detection
 
 Fail2Ban was configured on the Linux (Splunk) server to monitor authentication logs.
 
@@ -293,7 +338,7 @@ bantime = 600
 findtime = 600
 ```
 
-## Verification
+## 15 Verification
 
 The following command was used to verify that the SSH protection mechanism was active and enforcing bans.
 
@@ -317,7 +362,7 @@ Status for the jail: sshd
 ```
 
 
-## Issue 1 — Sysmon Not Recognized in PowerShell
+## 16.1 Issue 1 — Sysmon Not Recognized in PowerShell
 
 ### Problem
 
@@ -339,7 +384,7 @@ C:\Tools\Sysmon64.exe -c C:\Tools\sysmonconfig.xml
 
 ```
 
-## Issue 2 — No Logs Appearing in Splunk
+## 16.2 Issue 2 — No Logs Appearing in Splunk
 
 ### Problem
 
@@ -363,7 +408,7 @@ WinEventLog:Microsoft-Windows-Sysmon/Operational
 
 
 
-## Issue 3 — Fields Not Extracted (Image, CommandLine, ParentImage)
+## 16.3 Issue 3 — Fields Not Extracted (Image, CommandLine, ParentImage)
 
 ### Problem
 
@@ -386,7 +431,7 @@ Fields such as Image and CommandLine were not visible in Splunk.
 - Applied consistent extraction across all queries
 
 
-## Issue 5 — Fail2Ban Not Installed
+## 16.4 Issue 5 — Fail2Ban Not Installed
 
 ### Problem
 
@@ -404,7 +449,7 @@ sudo apt install fail2ban -y
 ```
 
 
-## Issue 6 — SSH Attack Not Detected
+## 16.5 Issue 6 — SSH Attack Not Detected
 
 ### Problem
 
@@ -426,7 +471,7 @@ ip a
 - Verified connectivity
 - Generated multiple failed SSH login attempts
 
-## Issue 7 — Incorrect Command Usage
+## 16.6 Issue 7 — Incorrect Command Usage
 
 ### Problem
 
@@ -447,7 +492,7 @@ cd .. or cd /
 ```
 
 
-## Issue 8 — Service Command Typo
+## 16.7 Issue 8 — Service Command Typo
 
 ### Problem
 ```
@@ -466,7 +511,7 @@ sudo systemctl start fail2ban
 ```
 
 
-### 1. Detection Volume
+## 17.1 Detection Volume
 
 Measures the volume of detection events over time.
 
@@ -482,7 +527,7 @@ index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
 ```
 
 
-### 2. Top Triggered Detections
+## 17.2 Top Triggered Detections
 
 Identifies the most frequently triggered detection rules.
 
@@ -505,7 +550,7 @@ like(CommandLine,"%ExecutionPolicy Bypass%"),"Execution Policy Bypass"
 | sort -count
 ```
 
-### 3. Suspicious Process Frequency
+## 17.3 Suspicious Process Frequency
 
 Tracks frequently executed suspicious processes.
 
@@ -522,7 +567,7 @@ index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
 | sort -count
 ```
 
-### 4. Parent-Child Process Anomalies
+## 17.4 Parent-Child Process Anomalies
 
 Analyzes unusual process relationships.
 
@@ -540,7 +585,7 @@ index=* sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
 | sort -count
 ```
 
-### 5. Failed Authentication Attempts (Fail2Ban Correlation)
+## 17.5 Failed Authentication Attempts (Fail2Ban Correlation)
 
 Tracks failed SSH login attempts and banned IPs.
 
