@@ -1,0 +1,33 @@
+title: Suspicious PowerShell Encoded Command
+id: 1a2b3c4d-encoded-powershell
+status: experimental
+description: Detects PowerShell encoded command execution
+author: Deepak Pawar
+date: 2026-03-27
+logsource:
+  product: windows
+  service: sysmon
+
+detection:
+  selection:
+    EventID: 1
+    Image|endswith: '\powershell.exe'
+    CommandLine|contains:
+      - '-EncodedCommand'
+      - '-enc'
+  condition: selection
+
+fields:
+  - Image
+  - CommandLine
+  - ParentImage
+
+falsepositives:
+  - Administrative scripts
+  - Legitimate automation tools
+
+level: high
+
+tags:
+  - attack.execution
+  - attack.t1059.001
