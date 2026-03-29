@@ -1,3 +1,7 @@
+# Detection Logic:
+# This rule identifies PowerShell execution with encoded commands,
+# which is commonly used for obfuscation (MITRE T1059.001)
+
 title: Suspicious PowerShell Encoded Command
 id: 1a2b3c4d-encoded-powershell
 status: experimental
